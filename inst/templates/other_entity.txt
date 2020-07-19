@@ -1,0 +1,1 @@
+objectName	entityName	entityDescription	characterEncoding	formatName	formatVersion	entityType
