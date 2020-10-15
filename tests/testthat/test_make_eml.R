@@ -1011,3 +1011,18 @@ testthat::test_that("Single item lists and excess references", {
     force = TRUE)
   
 })
+
+# provenance ------------------------------------------------------------------
+
+testthat::test_that('provenance.txt template', {
+  
+  # TODO: Dev test
+  x1 <- x
+  x1$provenance <- "edi.100.1"
+  x1$write.file <- TRUE
+  x1$eml.path <- "C:\\Users\\Colin\\Documents\\EDI\\data_sets\\EAL"
+  r <- do.call(make_eml, x1[names(x1) %in% names(formals(make_eml))])
+  expect_true(EML::eml_validate(r))
+  
+  
+})

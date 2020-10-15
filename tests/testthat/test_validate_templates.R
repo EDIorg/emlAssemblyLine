@@ -1188,6 +1188,179 @@ testthat::test_that("personnel", {
   
 })
 
+# provenance -------------------------------------------------------------------
+
+testthat::test_that("provenance", {
+  
+  # Parameterize
+  
+  attr_tmp <- read_template_attributes()
+  x <- template_arguments(
+    system.file(
+      '/examples/pkg_260/metadata_templates',
+      package = 'EMLassemblyline'))$x
+  x1 <- x
+  
+  # Valid inputs result in equivalent outputs
+  
+  r <- validate_provenance(x1)
+  expect_null(r$issues)
+  expect_identical(r$x, x1)
+  
+  # Required columns are present
+  
+  x1 <- x
+  expected_colnames <- colnames(x1$template$provenance.txt$content)
+  colnames(x1$template$provenance.txt$content) <- c(
+    "given", "middle", expected_colnames[-1:-2])
+  
+  expect_error(
+    validate_provenance_column_names(x1),
+    regexp = "Unexpected column names in the provenance template.")
+  
+  expect_error(
+    validate_provenance(x1),
+    regexp = "Unexpected column names in the provenance template.")
+  
+  # systemID - Only some systems are supported
+  
+  x1 <- x
+  x1$template$provenance.txt$content$systemID[
+    stringr::str_detect(
+      x1$template$provenance.txt$content$systemID, 
+      "EDI")] <- "non_supported_system"
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenance_system_id(x1),
+      "Unsupported systemID. The only supported system, currently, is 'EDI'."))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Unsupported systemID. The only supported system, currently, is 'EDI'."))
+  expect_null(r$x$template$provenance.txt)
+  
+  # dataPackageID + systemID - Valid pairs resolve to provenance metadata
+  
+  x1 <- x
+  x1$template$provenance.txt$content$dataPackageID[
+    stringr::str_detect(
+      x1$template$provenance.txt$content$systemID, 
+      "EDI")] <- "non_supported_package_id"
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenance_data_package_id_resolves(x1),
+      "Unresolvable dataPackageID:"))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Unresolvable dataPackageID:"))
+  expect_null(r$x$template$provenance.txt)
+  
+  # Required fields are complete, when dataPackageID and systemID pair is not 
+  # present
+  
+  x1 <- x
+  x1$template$provenance.txt$content$url[3] <- ""
+  x1$template$provenance.txt$content$title[4] <- ""
+  x1$template$provenance.txt$content$givenName[5] <- ""
+  x1$template$provenance.txt$content$middleInitial[5] <- ""
+  x1$template$provenance.txt$content$surName[5] <- ""
+  x1$template$provenance.txt$content$organizationName[5] <- ""
+  x1$template$provenance.txt$content$email[6] <- ""
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenance_external_resource_fields(x1),
+      "Incomplete external resource metadata. External resources require a"))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Incomplete external resource metadata. External resources require a"))
+  expect_null(r$x$template$provenance.txt)
+  
+  # A creator and contact is listed for each resource, when dataPackageID 
+  # and systemID pair is missing
+  # TODO: This test shouldn't rely on explicit row indicies to accomodate
+  # changes in the test data.
+  
+  x1 <- x
+  x1$template$provenance.txt$content$role[3] <- "contact"
+  x1$template$provenance.txt$content$role[7] <- "creator"
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenance_contact_creator(x1),
+      "Missing creator and or contact. External resources require a "))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Missing creator and or contact. External resources require a "))
+  expect_null(r$x$template$provenance.txt)
+  
+  # If multiple validation issues, then report all issues with a warning and
+  # corresponding changes to x (the data and metadata list object).
+  # TODO: Write this test
+  
+  # x1 <- x
+  # # Creator
+  # x1$template$provenance.txt$content$role[
+  #   which(x1$template$provenance.txt$content$role == "creator")] <- "creontact"
+  # # Contact
+  # x1$template$provenance.txt$content$role[
+  #   which(x1$template$provenance.txt$content$role == "contact")] <- "creontact"
+  # # role - All provenance have roles
+  # x1$template$provenance.txt$content$role[
+  #   which(x1$template$provenance.txt$content$role == "Equipment lead")] <- ""  
+  # # Project info - The projectTitle, fundingAgency, and fundingNumber is 
+  # # recommended
+  # x1$template$provenance.txt$content$projectTitle <- ""
+  # x1$template$provenance.txt$content$fundingAgency <- ""
+  # x1$template$provenance.txt$content$fundingNumber <- ""
+  # # Publisher - Only one publisher is allowed
+  # use_i <- which(x1$template$provenance.txt$content$role == "creontact")[1:2]
+  # x1$template$provenance.txt$content$role[use_i] <- "publisher"
+  # 
+  # # Expectations
+  # r <- validate_provenance(x1)
+  # expect_true(
+  #   any(
+  #     stringr::str_detect(
+  #       r$issues,
+  #       "Missing creator. At least one creator is required.")))
+  # expect_true(
+  #   any(
+  #     stringr::str_detect(
+  #       r$issues,
+  #       "Missing contact. At least one contact is required.")))
+  # expect_true(
+  #   any(
+  #     stringr::str_detect(
+  #       r$issues,
+  #       "Missing role. Each person requires a role.")))
+  # expect_true(
+  #   any(
+  #     stringr::str_detect(
+  #       validate_provenance(x1)$issues,
+  #       "Missing funding information. Including the project title, ")))
+  # expect_true(
+  #   any(
+  #     stringr::str_detect(
+  #       r$issues,
+  #       "Too many publishers. Only the first will be used.")))
+  # expect_null(r$x$template$provenance.txt)
+  
+})
+
 # taxonomic_coverage ----------------------------------------------------------
 
 testthat::test_that("taxonomic_coverage", {

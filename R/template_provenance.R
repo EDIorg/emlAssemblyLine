@@ -1,35 +1,32 @@
 #' Create provenance template
 #'
 #' @description  
-#'     Use this function to create provenance metadata for the input data 
-#'     sources to this data package.
+#'     Use this function to create provenance metadata for the input data sources to this data package.
 #'
 #' @param path 
 #'     (character) Path to the metadata template directory.
-#' @param package.id
-#'     (character) One or more source data package IDs.
-#' @param system.id
-#'     (character) One or more source system IDs (data repositories) for each \code{package.id}. Currently supported repositories: Environmental Data Initiative.
 #' @param empty
-#'     (logical) Whether to write an empty template file.
+#'     (logical) Whether to write an empty template file. Default is \code{TRUE}.
 #' @param write.file
-#'     (logical; optional) Whether to write the template file.
+#'     (logical; optional) Whether to write the template file. Default is \code{TRUE}.
+#' @param return.obj
+#'     (logical; optional) Whether to return the provenance template as a data frame. Default is \code{FALSE}.
 #'     
 #' @return
 #' \item{provenance.txt}{The tab delimited provenance template written to \code{path} with the columns:
 #' \itemize{
-#'     \item{title - The data resource title}
-#'     \item{givenName - A creator or contacts given name}
-#'     \item{middleInitial - A creator or contacts middle initial}
-#'     \item{surName - A creator or contacts middle initial}
-#'     \item{role - "creator" or "contact" of the data resource}
-#'     \item{organizationName - Name of organization the creator or contact belongs to}
-#'     \item{email - Email of the creator or contact}
-#'     \item{onlineDescription - Description of the data resource}
-#'     \item{url - URL linking to the data resource}
-#' 
-#' }
-#' }
+#'     \item{dataPackageID - Data package identifier. Supplying a valid packageID and systemID is all that is needed to create a complete provenance record.}
+#'     \item{systemID - System (i.e. data repository) identifier. Currently supported systems are: EDI (Environmental Data Initiative).}
+#'     \item{url - URL linking to an online resource (i.e. data, paper, etc.). Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{onlineDescription - Description of the data resource. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{title - The resource title. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{givenName - A creator or contacts given name. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{middleInitial - A creator or contacts middle initial. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{surName - A creator or contacts middle initial. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{role - "creator" and "contact" of the data resource. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{organizationName - Name of organization the creator or contact belongs to. Required when a resource can't be defined by a packageID and systemID.}
+#'     \item{email - Email of the creator or contact. Required when a resource can't be defined by a packageID and systemID.}
+#' }}
 #'     
 #' @details 
 #'     An existing provenance template will not be overwritten by a call to \code{template_provenance()}.
@@ -38,8 +35,7 @@
 #' # Set working directory
 #' setwd(tempdir())
 #' 
-#' # The most common use case is import of a blank template and manual 
-#' #completion
+#' # The most common use case is import of a blank template and manual completion
 #' template_provenance(path = ".")
 #' 
 #' # Clean up
@@ -48,258 +44,37 @@
 #' @export
 #'
 template_provenance <- function(
-  path, 
-  data.path = path, 
-  data.table, 
-  lat.col, 
-  lon.col, 
-  site.col, 
-  empty = FALSE, 
-  write.file = TRUE, 
-  x = NULL){
+  path = NULL, empty = TRUE, write.file = TRUE, return.obj = FALSE) {
   
-  message('Templating geographic coverage ...')
+  message("Templating provenance ...")
   
   # Validate arguments --------------------------------------------------------
   
-  # Validate path usage before passing arguments to validate_arguments()
-  # When not using x, inputs are expected from path and data.path. 
-  # When using x, only data.path is used. Ignored are path and write.file.
-  
-  if (is.null(x) & missing(path)){
-    stop('Input argument "path" is missing.')
-  } else if (!is.null(x) & missing(path)){
-    path <- NULL
-    data.path <- NULL
-  }
-  
-  # Pass remaining arguments to validate_arguments().
-  
   validate_arguments(
-    fun.name = 'template_geographic_coverage',
-    fun.args = as.list(environment())
-  )
+    fun.name = 'template_provenance',
+    fun.args = as.list(environment()))
   
-  # Read data -----------------------------------------------------------------
+  # Write to file -------------------------------------------------------------
   
-  # If not using x ...
-  
-  if (is.null(x)){
-    
-    if (!isTRUE(empty)){
-      
-      # Validate file name
-      
-      data_file <- suppressWarnings(
-        EDIutils::validate_file_names(
-          path = data.path, 
-          data.files = data.table
-        )
-      )
-      
-      # Read data table
-      
-      x <- template_arguments(
-        data.path = data.path,
-        data.table = data_file
-      )
-      
-      x <- x$x
-      
-      data_read_2_x <- NA_character_
-      
-    }
-    
-    # Does file exist?
-    
-    f_exists <- file.exists(
-      paste0(
-        path,
-        '/geographic_coverage.txt'
-      )
-    )
-    
-    # If using x ...  
-    
-  } else if (!is.null(x)){
-    
-    if (!isTRUE(empty)){
-      
-      # data.table
-      
-      data_file <- data.table
-      
-    }
-    
-    # write.file
-    
-    if (isTRUE(write.file)){
-      
-      stop('Input argument "write.file" is not supported when using "x".')
-      
-    }
-    
-    # Does file exist?
-    
-    f_exists <- is.data.frame(x$template$geographic_coverage.txt$content)
-    
+  if (!is.null(path)) {
+    invisible(
+      file.copy(
+        from = system.file(
+          "/templates/provenance.txt", 
+          package = "EMLassemblyline"),
+        to = path))
   }
-  
-  # Extract geographic coverage -----------------------------------------------
-  
-  if (isTRUE(f_exists)){
-    
-    message("geographic_coverage.txt already exists!")
-    
-  } else {
-    
-    message('geographic_coverage.txt')
-    
-    if (!isTRUE(empty)){
-      
-      df_table <- x$data.table[[data_file]]$content
-      
-      # Validate column names
-      
-      columns <- colnames(df_table)
-      columns_in <- c(lat.col, lon.col, site.col)
-      use_i <- stringr::str_detect(string = columns,
-                                   pattern = stringr::str_c("^", columns_in, "$", collapse = "|"))
-      if (sum(use_i) > 0){
-        use_i2 <- columns[use_i]
-        use_i3 <- columns_in %in% use_i2
-        if (sum(use_i) != 3){
-          stop(paste("Invalid column names entered: ", paste(columns_in[!use_i3], collapse = ", "), sep = ""))
-        }
-      }
-      
-      # Subset table names
-      
-      df_table <- df_table[ ,c(lat.col, lon.col, site.col)]
-      
-      # Remove incomplete lines
-      
-      use_i <- df_table[site.col] == ""
-      df_table[use_i, site.col] <- NA
-      df_table <- df_table[stats::complete.cases(df_table), ]
-      
-      # Get vectors of latitude, longitude, and site
-      
-      latitude <- df_table[lat.col]
-      
-      longitude <- df_table[lon.col]
-      
-      site_name <- unique(unlist(df_table[site.col]))
-      
-      # Output lat and long corresponding to sites
-      
-      latitude_out = c()
-      longitude_out = c() 
-      site_out = c()
-      
-      for (i in 1:length(site_name)){
-        
-        useI <- site_name[i] == df_table[site.col]
-        
-        latitude_out[i] <- suppressWarnings(
-          as.numeric(latitude[useI][1]))
-        
-        longitude_out[i] <- suppressWarnings(
-          as.numeric(longitude[useI][1]))
-        
-        site_out[i] <- site_name[i]
-        
-      }
-      
-      geocoverage_out <- data.frame(
-        geographicDescription = enc2utf8(site_out), # Encode extracted metadata in UTF-8
-        northBoundingCoordinate = latitude_out,
-        southBoundingCoordinate = latitude_out,
-        eastBoundingCoordinate = longitude_out,
-        westBoundingCoordinate = longitude_out,
-        stringsAsFactors = F)
-      
-      geocoverage_out <- geocoverage_out[complete.cases(geocoverage_out), ]
-      
-    } else {
-      
-      geocoverage_out <- data.frame(
-        geographicDescription = character(0),
-        northBoundingCoordinate = character(0),
-        southBoundingCoordinate = character(0),
-        eastBoundingCoordinate = character(0),
-        westBoundingCoordinate = character(0),
-        stringsAsFactors = F)
-      
-    }
-    
-    # FIXME: Automatically create bounding coordinates
-    
-    # geocoverage_out$geographicDescription <- 'Bounding area of sites'
-    # geocoverage_out$northBoundingCoordinate <- latitude_out
-    # geocoverage_out$southBoundingCoordinate <- latitude_out
-    # geocoverage_out$eastBoundingCoordinate <- longitude_out
-    # geocoverage_out$westBoundingCoordinate <- longitude_out
-    
-    # Write geographic_coverage.txt -------------------------------------------
-    
-    if (isTRUE(write.file)){
-      
-      suppressWarnings(
-        utils::write.table(
-          geocoverage_out,
-          paste0(
-            path,
-            "/",
-            "geographic_coverage.txt"
-          ),
-          sep = "\t",
-          row.names = F,
-          quote = F,
-          fileEncoding = "UTF-8"
-        )
-      )
-      
-    } else if (!exists('data_read_2_x')){
-      
-      value <- stringr::str_detect(
-        names(x$template),
-        'geographic_coverage.txt'
-      )
-      
-      if (!any(value)){
-        
-        message('Adding geographic_coverage.txt to x.')
-        
-        missing_template <- list(
-          content = geocoverage_out
-        )
-        
-        missing_template <- list(
-          missing_template
-        )
-        
-        names(missing_template) <- 'geographic_coverage.txt'
-        
-        x$template <- c(
-          x$template, 
-          missing_template
-        )
-        
-      }
-      
-    }
-    
-  }
-  
+
   # Return values -------------------------------------------------------------
   
   message("Done.")
   
-  if (!exists('data_read_2_x') & !isTRUE(empty)){
-    
-    return(x)
-    
+  if (isTRUE(return.obj)){
+    return(
+      data.table::fread(
+        system.file(
+          "/templates/provenance.txt", 
+          package = "EMLassemblyline")))
   }
   
 }
