@@ -1519,9 +1519,10 @@ validate_provenance_column_names <- function(x) {
 #'     \item{NULL}{If no issues were found}
 #'
 validate_provenance_system_id <- function(x) {
-  system_ids <- tolower(
-    x$template$provenance.txt$content$systemID) == "edi"
-  if (!any(system_ids)) {
+  unsupported_system_ids <- 
+    tolower(x$template$provenance.txt$content$systemID) != "edi" &
+    x$template$provenance.txt$content$systemID != ""
+  if (any(unsupported_system_ids)) {
     paste0(
       "Unsupported systemID. The only supported system, currently, is 'EDI'.")
   }
@@ -1594,14 +1595,14 @@ validate_provenance_external_resource_fields <- function(x) {
     function(x) {
       x["url"] == "" |
         x["title"] == "" |
-        ((x["givenName"] == "" & x["surName"] == "") | x["organizationName"] == "")
+        ((x["givenName"] == "" & x["surName"] == "") & x["organizationName"] == "")
     })
   if (any(incomplete_metadata)) {
     paste0(
       "Incomplete external resource metadata. External resources require a ",
       "title, givenName and surName or organizationName, and url. Incomplete ",
       "external resource metadata found for entries: ", 
-      paste(names(incomplete_metadata), collapse = ", "))
+      paste(names(incomplete_metadata[incomplete_metadata]), collapse = ", "))
   }
 }
 
@@ -2658,6 +2659,8 @@ compile_geographic_coverage <- function(x) {
   geographic.coordinates <- NULL
   geographic.description <- NULL
   
+  # TODO: Refactor this chunck. Each conditional handles a separate user case.
+  # A better solution would require fewer exceptions.
   make_eml_args <- try(sys.call(which = -3), silent = TRUE)
   if (class(make_eml_args) == "call") {
     if (is.character(make_eml_args$geographic.coordinates) &
@@ -2668,6 +2671,10 @@ compile_geographic_coverage <- function(x) {
                is.character(make_eml_args$geographic.description)) {
       geographic.coordinates <- eval(make_eml_args$geographic.coordinates)
       geographic.description <- make_eml_args$geographic.description
+    } else if (is.name(make_eml_args$geographic.coordinates) &
+               is.name(make_eml_args$geographic.description)) {
+      geographic.coordinates <- eval(make_eml_args$geographic.coordinates)
+      geographic.description <- eval(make_eml_args$geographic.description)
     }
   }
   

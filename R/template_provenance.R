@@ -62,7 +62,8 @@ template_provenance <- function(
         from = system.file(
           "/templates/provenance.txt", 
           package = "EMLassemblyline"),
-        to = path))
+        to = path, 
+        overwrite = FALSE))
   }
 
   # Return values -------------------------------------------------------------
