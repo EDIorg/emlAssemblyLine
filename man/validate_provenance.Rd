@@ -22,12 +22,14 @@ Validate the provenance template
 Checks performed by this function:
     \itemize{
         \item{Template column names are correct}
-        \item{systemID is supported}
-        \item{dataPackageID and systemID pair resolves to resource metadata}
-        \item{All fields are complete, when dataPackageID and systemID pair is not present}
-        \item{A creator and contact is listed for each resource, when dataPackageID and systemID pair is not present}
-        \item{Title is present, when dataPackageID and systemID pair is not present}
-        \item{URL present, when dataPackageID and systemID pair is not present}
+        \item{systemID is one of the supported system identifiers}
+        \item{dataPackageID and systemID pair resolves to resource metadata in \code{systemID}}
+        \item{A URL is present and resolves for external resources}
+        \item{An online description is recommended for external resources}
+        \item{A title is present for external resources}
+        \item{A persons name, or an organization name, is present for external resources}
+        \item{A creator and contact (role) is listed for each external resource}
+        \item{An email contact is recommended for external resources}
     }
     
     Checks are grouped by required and optional criteria. If any required

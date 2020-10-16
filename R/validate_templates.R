@@ -1391,12 +1391,14 @@ validate_personnel_publisher <- function(x) {
 #'     Checks performed by this function:
 #'     \itemize{
 #'         \item{Template column names are correct}
-#'         \item{systemID is supported}
-#'         \item{dataPackageID and systemID pair resolves to resource metadata}
-#'         \item{All fields are complete, when dataPackageID and systemID pair is not present}
-#'         \item{A creator and contact is listed for each resource, when dataPackageID and systemID pair is not present}
-#'         \item{Title is present, when dataPackageID and systemID pair is not present}
-#'         \item{URL present, when dataPackageID and systemID pair is not present}
+#'         \item{systemID is one of the supported system identifiers}
+#'         \item{dataPackageID and systemID pair resolves to resource metadata in \code{systemID}}
+#'         \item{A URL is present and resolves for external resources}
+#'         \item{An online description is recommended for external resources}
+#'         \item{A title is present for external resources}
+#'         \item{A persons name, or an organization name, is present for external resources}
+#'         \item{A creator and contact (role) is listed for each external resource}
+#'         \item{An email contact is recommended for external resources}
 #'     }
 #'     
 #'     Checks are grouped by required and optional criteria. If any required
@@ -1410,28 +1412,45 @@ validate_provenance <- function(x) {
 
   if (any(names(x$template) == "provenance.txt")) {
 
-    # Column names are correct
+    # Template column names are correct
     r <- validate_provenance_column_names(x)
     
-    # systemID
+    # systemID is one of the supported system identifiers
     r <- validate_provenance_system_id(x)
     required_issues <- c(required_issues, r)
 
-    # systemID + dataPackageID - dataPackageID and systemID pair resolves to 
-    # resource metadata
-    r <- validate_provenance_data_package_id_resolves(x)
+    # dataPackageID and systemID pair resolves to resource metadata in systemID
+    r <- validate_provenance_data_package_id(x)
     required_issues <- c(required_issues, r)
     
-    # All fields are complete, when dataPackageID and systemID pair is not 
-    # present
-    # TODO: Split this check into individual components
-    r <- validate_provenance_external_resource_fields(x)
+    # A URL is present for external resources
+    r <- validate_provenace_url_presence(x)
     required_issues <- c(required_issues, r)
     
-    # A creator and contact is listed for each resource, when dataPackageID 
-    # and systemID pair is missing
+    # A URL resolves for external resources
+    r <- validate_provenace_url_resolvability(x)
+    required_issues <- c(required_issues, r)
+
+    # An online description is recommended for external resources
+    r <- validate_provenace_online_description(x)
+    optional_issues <- c(optional_issues, r)
+
+    # A title is present for external resources
+    r <- validate_provenace_title(x)
+    required_issues <- c(required_issues, r)
+
+    # A persons name, or an organization name, is present for external 
+    # resources
+    r <- validate_provenace_individual_organization_name(x)
+    required_issues <- c(required_issues, r)
+
+    # A creator and contact (role) is listed for each external resource
     r <- validate_provenance_contact_creator(x)
     required_issues <- c(required_issues, r)
+
+    # An email is recommended for external resources
+    r <- validate_provenace_email(x)
+    optional_issues <- c(optional_issues, r)
 
   }
   
@@ -1496,7 +1515,7 @@ validate_provenance_column_names <- function(x) {
   if (!all(expected_colnames %in% found_colnames)) {
     stop(
       "Unexpected column names in the provenance template. ",
-      "Expected columns are:\n",
+      "Expected columns are: ",
       paste(expected_colnames, collapse = ", "),
       call. = FALSE)
   }
@@ -1544,7 +1563,7 @@ validate_provenance_system_id <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenance_data_package_id_resolves <- function(x) {
+validate_provenance_data_package_id <- function(x) {
   valid_system_ids <- tolower(
     x$template$provenance.txt$content$systemID) == "edi"
   if (any(valid_system_ids)) {
@@ -1564,7 +1583,7 @@ validate_provenance_data_package_id_resolves <- function(x) {
         }))
     if (length(invalid_package_ids) != 0) {
       paste0(
-        "Unresolvable dataPackageID: ", 
+        "Invalid dataPackageID. These dataPackageID cannot be resolved: ", 
         paste(invalid_package_ids, collapse = ", "))
     }
   }
@@ -1576,7 +1595,8 @@ validate_provenance_data_package_id_resolves <- function(x) {
 
 
 
-#' Check external resource metadata is complete in the provenance template
+
+#' Check a URL is present for external resources in the provenance template
 #'
 #' @param x 
 #'     (list) The data and metadata object returned by 
@@ -1586,25 +1606,180 @@ validate_provenance_data_package_id_resolves <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenance_external_resource_fields <- function(x) {
+validate_provenace_url_presence <- function(x) {
   external_resources <- x$template$provenance.txt$content[
-    !tolower(x$template$provenance.txt$content$systemID) == "edi", ]
-  incomplete_metadata <- apply(
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+      x$template$provenance.txt$content$systemID != ""), ]
+  urls <- unique(external_resources$url)
+  titles <- unique(external_resources$title)
+  missing_urls <- unlist(
+    lapply(
+      urls,
+      function(url) {
+        if (url == "") {
+          TRUE
+        } else {
+          FALSE
+        }      
+      }))
+  if (any(missing_urls)) {
+    paste0(
+      "Missing URLs. A URL is required for each resource. These resources ",
+      "have missing URLs:\n", 
+      paste(titles[missing_urls], collapse = "\n"))
+  }
+}
+
+
+
+
+
+
+
+
+#' Check a URL can be resolved for external resources in the provenance template
+#'
+#' @param x 
+#'     (list) The data and metadata object returned by 
+#'     \code{template_arguments()}.
+#'
+#' @return
+#'     \item{character}{Description of validation issues}
+#'     \item{NULL}{If no issues were found}
+#'
+validate_provenace_url_resolvability <- function(x) {
+  external_resources <- x$template$provenance.txt$content[
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+        x$template$provenance.txt$content$systemID != ""), ]
+  urls <- unique(external_resources$url)
+  unresolvable_urls <- unlist(
+    lapply(
+      urls,
+      function(url) {
+        r <- tryCatch(
+          httr::GET(url), 
+          error = function(e) {
+            TRUE
+          })
+        if (isTRUE(r)) {
+          url
+        }
+      }))
+  if (length(unresolvable_urls) != 0) {
+    paste0(
+      "Unresolvable URLs. URLs must be resolvable. These URLs do not resolve:\n",
+      paste(unresolvable_urls, collapse = "\n"))
+  }
+}
+
+
+
+
+
+
+
+
+#' Check for description of external resources in the provenance template
+#'
+#' @param x 
+#'     (list) The data and metadata object returned by 
+#'     \code{template_arguments()}.
+#'
+#' @return
+#'     \item{character}{Description of validation issues}
+#'     \item{NULL}{If no issues were found}
+#'
+validate_provenace_online_description <- function(x) {
+  external_resources <- x$template$provenance.txt$content[
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+        x$template$provenance.txt$content$systemID != ""), ]
+  missing_descriptions <- unique(
+    external_resources$title[
+      external_resources$onlineDescription == ""])
+  if (length(missing_descriptions) != 0) {
+    paste0(
+      "Missing online descriptions. A description of each external resource ",
+      "is recommended. These resources are missing descriptions:\n",
+      paste(missing_descriptions, collapse = "\n"))
+  }
+}
+
+
+
+
+
+
+
+
+#' Check for title of external resources in the provenance template
+#'
+#' @param x 
+#'     (list) The data and metadata object returned by 
+#'     \code{template_arguments()}.
+#'
+#' @return
+#'     \item{character}{Description of validation issues}
+#'     \item{NULL}{If no issues were found}
+#'
+validate_provenace_title <- function(x) {
+  external_resources <- x$template$provenance.txt$content[
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+        x$template$provenance.txt$content$systemID != ""), ]
+  missing_titles <- unique(
+    external_resources$url[
+      external_resources$title == ""])
+  if (length(missing_titles) != 0) {
+    paste0(
+      "Missing titles. A title is required for each external resource. ",
+      "These resources are missing titles:\n",
+      paste(missing_titles, collapse = "\n"))
+  }
+}
+
+
+
+
+
+
+
+
+#' Check individual and organization name of external resources in the provenance template
+#'
+#' @param x 
+#'     (list) The data and metadata object returned by 
+#'     \code{template_arguments()}.
+#'
+#' @return
+#'     \item{character}{Description of validation issues}
+#'     \item{NULL}{If no issues were found}
+#'
+validate_provenace_individual_organization_name <- function(x) {
+  external_resources <- x$template$provenance.txt$content[
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+        x$template$provenance.txt$content$systemID != ""), ]
+  titles <- unique(external_resources$title)
+  missing_individual_and_organization_name <- apply(
     external_resources, 
     1,
     function(x) {
-      x["url"] == "" |
-        x["title"] == "" |
-        ((x["givenName"] == "" & x["surName"] == "") & x["organizationName"] == "")
+      (x["givenName"] == "" & x["surName"] == "") & x["organizationName"] == ""
     })
-  if (any(incomplete_metadata)) {
+  missing_titles <- unique(
+    external_resources$title[
+      missing_individual_and_organization_name])
+  if (length(missing_titles) != 0) {
     paste0(
-      "Incomplete external resource metadata. External resources require a ",
-      "title, givenName and surName or organizationName, and url. Incomplete ",
-      "external resource metadata found for entries: ", 
-      paste(names(incomplete_metadata[incomplete_metadata]), collapse = ", "))
+      "Missing individual or organization name. An individual person or ",
+      "organization name is required for each external resource. These ",
+      "resources are missing one or the other:\n",
+      paste(missing_titles, collapse = "\n"))
   }
 }
+
+
+
+
+
 
 
 
@@ -1623,11 +1798,13 @@ validate_provenance_external_resource_fields <- function(x) {
 #'     \item{NULL}{If no issues were found}
 #'
 validate_provenance_contact_creator <- function(x) {
-  resource_titles <- unique(x$template$provenance.txt$content$title)
-  resource_titles <- resource_titles[!(resource_titles %in% "")]
+  external_resources <- x$template$provenance.txt$content[
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+        x$template$provenance.txt$content$systemID != ""), ]
+  titles <- unique(external_resources$title)
   missing_creator_or_contact <- unlist(
     lapply(
-      resource_titles,
+      titles,
       function(title) {
         roles <- x$template$provenance.txt$content[
           x$template$provenance.txt$content$title == title, ]$role
@@ -1638,12 +1815,45 @@ validate_provenance_contact_creator <- function(x) {
       }))
   if (length(missing_creator_or_contact) != 0) {
     paste0(
-      "Missing creator and or contact. External resources require a ",
-      "creator and contact. Incomplete external resource metadata found for ",
-      "resource titles: ", 
+      "Missing creator/contact. Each external resources requires both a ",
+      "creator and a contact. A creator/contact is missing for these ",
+      "resources:\n", 
       paste(missing_creator_or_contact, collapse = "\n"))
   }
 }
+
+
+
+
+
+
+
+
+#' Check for email in external resources in the provenance template
+#'
+#' @param x 
+#'     (list) The data and metadata object returned by 
+#'     \code{template_arguments()}.
+#'
+#' @return
+#'     \item{character}{Description of validation issues}
+#'     \item{NULL}{If no issues were found}
+#'
+validate_provenace_email <- function(x) {
+  external_resources <- x$template$provenance.txt$content[
+    !(x$template$provenance.txt$content$dataPackageID != "" &
+        x$template$provenance.txt$content$systemID != ""), ]
+  missing_emails <- unique(
+    external_resources$title[
+      external_resources$email == ""])
+  if (length(missing_emails) != 0) {
+    paste0(
+      "Missing email. An email address for each external resource ",
+      "is recommended. These resources are missing email addresses:\n",
+      paste(missing_emails, collapse = "\n"))
+  }
+}
+
 
 
 

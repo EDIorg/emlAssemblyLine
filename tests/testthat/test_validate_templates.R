@@ -1201,7 +1201,7 @@ testthat::test_that("provenance", {
       package = 'EMLassemblyline'))$x
   x1 <- x
   
-  # Valid inputs result in equivalent outputs
+  # Valid inputs result don't result in issues
   
   r <- validate_provenance(x1)
   expect_null(r$issues)
@@ -1252,60 +1252,199 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenance_data_package_id_resolves(x1),
-      "Unresolvable dataPackageID:"))
+      validate_provenance_data_package_id(x1),
+      "Invalid dataPackageID. These dataPackageID cannot be resolved:"))
   
   r <- validate_provenance(x1)
   expect_true(
     stringr::str_detect(
       r$issues,
-      "Unresolvable dataPackageID:"))
+      "Invalid dataPackageID. These dataPackageID cannot be resolved:"))
   expect_null(r$x$template$provenance.txt)
   
-  # Required fields are complete, when dataPackageID and systemID pair is not 
-  # present
+  # A URL is present for external resources
   
   x1 <- x
-  x1$template$provenance.txt$content$url[3] <- ""
-  x1$template$provenance.txt$content$title[4] <- ""
-  x1$template$provenance.txt$content$givenName[5] <- ""
-  x1$template$provenance.txt$content$middleInitial[5] <- ""
-  x1$template$provenance.txt$content$surName[5] <- ""
-  x1$template$provenance.txt$content$organizationName[5] <- ""
-  x1$template$provenance.txt$content$email[6] <- ""
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$url[external_resources[1:2]] <- ""
   
   expect_true(
     stringr::str_detect(
-      validate_provenance_external_resource_fields(x1),
-      "Incomplete external resource metadata. External resources require a"))
+      validate_provenace_url_presence(x1),
+      "Missing URLs. A URL is required for each resource. These resources"))
   
   r <- validate_provenance(x1)
   expect_true(
     stringr::str_detect(
       r$issues,
-      "Incomplete external resource metadata. External resources require a"))
+      "Missing URLs. A URL is required for each resource. These resources"))
+  expect_null(r$x$template$provenance.txt)
+  
+  # A URL resolves for external resources
+
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$url[external_resources[1:2]] <- 
+    "a_non_resolvable_url"
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenace_url_resolvability(x1),
+      "Unresolvable URLs. URLs must be resolvable. These URLs do not "))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Unresolvable URLs. URLs must be resolvable. These URLs do not "))
+  expect_null(r$x$template$provenance.txt)
+  
+  # An online description is recommended for external resources
+  
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$onlineDescription[
+    external_resources[1:2]] <- ""
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenace_online_description(x1),
+      "Missing online descriptions. A description of each external resource"))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Missing online descriptions. A description of each external resource"))
+  expect_true(!is.null(r$x$template$provenance.txt))
+  
+  # A title is present for external resources
+  
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$title[external_resources[1:2]] <- ""
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenace_title(x1),
+      "Missing titles. A title is required for each external resource. "))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Missing titles. A title is required for each external resource. "))
+  expect_null(r$x$template$provenance.txt)
+  
+  # A persons name, or an organization name, is present for external resources
+  
+  # Is not an issue if organization name is present
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$givenName[external_resources[1:2]] <- ""
+  x1$template$provenance.txt$content$middleInitial[external_resources[1:2]] <- ""
+  x1$template$provenance.txt$content$surName[external_resources[1:2]] <- ""
+  expect_null(validate_provenace_individual_organization_name(x1))
+  
+  # Is not an issue if individual name is present
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$organizationName[external_resources[1:2]] <- ""
+  expect_null(validate_provenace_individual_organization_name(x1))
+  
+  # Is an issue only if both are missing
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$givenName[external_resources[1:2]] <- ""
+  x1$template$provenance.txt$content$middleInitial[external_resources[1:2]] <- ""
+  x1$template$provenance.txt$content$surName[external_resources[1:2]] <- ""
+  x1$template$provenance.txt$content$organizationName[external_resources[1:2]] <- ""
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenace_individual_organization_name(x1),
+      "Missing individual or organization name. An individual person or "))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Missing individual or organization name. An individual person or "))
   expect_null(r$x$template$provenance.txt)
   
   # A creator and contact is listed for each resource, when dataPackageID 
   # and systemID pair is missing
-  # TODO: This test shouldn't rely on explicit row indicies to accomodate
-  # changes in the test data.
   
   x1 <- x
-  x1$template$provenance.txt$content$role[3] <- "contact"
-  x1$template$provenance.txt$content$role[7] <- "creator"
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$role[external_resources[1:2]] <- ""
   
   expect_true(
     stringr::str_detect(
       validate_provenance_contact_creator(x1),
-      "Missing creator and or contact. External resources require a "))
+      "Missing creator/contact. Each external resources requires both a "))
   
   r <- validate_provenance(x1)
   expect_true(
     stringr::str_detect(
       r$issues,
-      "Missing creator and or contact. External resources require a "))
+      "Missing creator/contact. Each external resources requires both a "))
   expect_null(r$x$template$provenance.txt)
+  
+  # TODO: An email contact is recommended for external resources
+  
+  x1 <- x
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$email[
+    external_resources[1:2]] <- ""
+  
+  expect_true(
+    stringr::str_detect(
+      validate_provenace_email(x1),
+      "Missing email. An email address for each external resource is "))
+  
+  r <- validate_provenance(x1)
+  expect_true(
+    stringr::str_detect(
+      r$issues,
+      "Missing email. An email address for each external resource is "))
+  expect_true(!is.null(r$x$template$provenance.txt))
   
   # If multiple validation issues, then report all issues with a warning and
   # corresponding changes to x (the data and metadata list object).
