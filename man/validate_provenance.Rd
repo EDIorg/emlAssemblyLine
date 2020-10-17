@@ -19,7 +19,11 @@ validate_provenance(x)
 Validate the provenance template
 }
 \details{
-Checks performed by this function:
+This function compiles provenance input as \code{provenance} to 
+    \code{make_eml()} and listed in the provenance.txt template,
+    and returns all unique values in the provenance.txt template.
+
+    Checks performed by this function:
     \itemize{
         \item{Template column names are correct}
         \item{systemID is one of the supported system identifiers}

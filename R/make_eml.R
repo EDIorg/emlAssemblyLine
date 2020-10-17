@@ -1062,97 +1062,104 @@ make_eml <- function(
   
   # Create <methodStep> (provenance) ------------------------------------------
   # Get provenance metadata for a data package in the EDI data repository.
-  # FIXME: Support inputs from the provenance.txt metadata template
-  # FIXME: Support provenance metadata models used by other EML based 
+  # TODO: Support provenance metadata models used by other EML based 
   # repositories
   
-  # TODO: Integrate this with the template inputs in validate_templates()
-  if (!is.null(provenance)) {
-    o <- lapply(
-      provenance,
-      function(k) {
-        message("      <methodStep> (provenance metadata)")
-        r <- httr::GET(
-          paste0(
-            EDIutils::url_env("production"), 
-            ".lternet.edu/package/provenance/eml/", 
-            stringr::str_replace_all(k, '\\.', '/')))
-        if (r$status_code == 200) {
-          prov <- httr::content(r, encoding = 'UTF-8')
-          # Remove IDs from creator and contact to preempt ID + reference 
-          # errors
-          xml2::xml_set_attr(
-            xml2::xml_find_all(prov, './/dataSource/creator'),
-            'id', NULL)
-          xml2::xml_set_attr(
-            xml2::xml_find_all(prov, './/dataSource/contact'),
-            'id', NULL)
-          # Write .xml to tempdir() and read back in as an emld list object
-          # to be added to the dataset emld list under construction here
-          xml2::write_xml(prov, paste0(tempdir(), "/provenance_metadata.xml"))
-          prov <- EML::read_eml(paste0(tempdir(), "/provenance_metadata.xml"))
-          prov$`@context` <- NULL
-          prov$`@type` <- NULL
-          eml$dataset$methods$methodStep[[
-            length(eml$dataset$methods$methodStep)+1]] <<- prov
-          suppressMessages(file.remove(paste0(tempdir(), "/provenance_metadata.xml")))
-        } else {
-          message("Unable to get provenance metadata.")
-        }
-      })
-  }
-  
   if (!is.null(x$template$provenance.txt$content)) {
-    resource_titles <- unique(x$template$provenance.txt$content$title)
-    resource_titles <- resource_titles[!(resource_titles %in% "")]
-    provenance <- lapply(
-      resource_titles,
-      function(title) {
-        message("      <methodStep> (provenance metadata)")
-        d <- x$template$provenance.txt$content[
-          x$template$provenance.txt$content$title == title, ]
-        
-        out <- list(
-          dataSource = list(
-            title = title,
-            creator = NULL,
-            distribution = list(
-              online = list(
-                onlineDescription = d[1, "onlineDescription"],
-                url = d[1, "url"])),
-            contact = NULL),
-          description = "This provenance metadata does not contain entity specific information.")
-        
-        for (i in 1:nrow(d)) {
-          if (d$role[i] == "creator") {
-            out$dataSource$creator[[length(out$dataSource$creator) + 1]] <- 
-              list(
-                individualName = list(
-                  givenName = trimws(paste(d$givenName[i], d$middleInitial[i])),
-                  surName = d$surName[i])
-              )
-          }
-        }
-        
-        for (i in 1:nrow(d)) {
-          if (d$role[i] == "contact") {
-            out$dataSource$contact[[length(out$dataSource$contact) + 1]] <- 
-              list(
-                individualName = list(
-                  givenName = trimws(paste(d$givenName[i], d$middleInitial[i])),
-                  surName = d$surName[i])
-              )
-          }
-        }
-        
-        out
-        
-      })
     
-    eml$dataset$methods$methodStep <- c(eml$dataset$methods$methodStep, provenance)
+    # Internal resources (supported systems)
+    internal_resources <- x$template$provenance.txt$content[
+      x$template$provenance.txt$content$dataPackageID != "", ]
     
+    # External resources (everything else)
+    external_resources <- x$template$provenance.txt$content[
+      x$template$provenance.txt$content$dataPackageID == "", ]
+    
+    # Parse internal resources
+    if (nrow(internal_resources) != 0) {
+      data_package_identifiers <- unique(internal_resources$dataPackageID)
+      o <- lapply(
+        data_package_identifiers,
+        function(k) {
+          message("      <methodStep> (provenance metadata)")
+          r <- httr::GET(
+            paste0(
+              EDIutils::url_env("production"),
+              ".lternet.edu/package/provenance/eml/",
+              stringr::str_replace_all(k, '\\.', '/')))
+          if (r$status_code == 200) {
+            prov <- httr::content(r, encoding = 'UTF-8')
+            # Remove IDs from creator and contact to preempt ID + reference
+            # errors
+            xml2::xml_set_attr(
+              xml2::xml_find_all(prov, './/dataSource/creator'),
+              'id', NULL)
+            xml2::xml_set_attr(
+              xml2::xml_find_all(prov, './/dataSource/contact'),
+              'id', NULL)
+            # Write .xml to tempdir() and read back in as an emld list object
+            # to be added to the dataset emld list under construction here
+            xml2::write_xml(prov, paste0(tempdir(), "/provenance_metadata.xml"))
+            prov <- EML::read_eml(paste0(tempdir(), "/provenance_metadata.xml"))
+            prov$`@context` <- NULL
+            prov$`@type` <- NULL
+            eml$dataset$methods$methodStep[[
+              length(eml$dataset$methods$methodStep)+1]] <<- prov
+            suppressMessages(file.remove(paste0(tempdir(), "/provenance_metadata.xml")))
+          } else {
+            message("Unable to get provenance metadata.")
+          }
+        })
+    }
+    
+    # Parse external resources
+    if (nrow(external_resources) != 0) {
+      resource_titles <- unique(external_resources$title)
+      provenance <- lapply(
+        resource_titles,
+        function(title) {
+          message("      <methodStep> (provenance metadata)")
+          d <- x$template$provenance.txt$content[
+            x$template$provenance.txt$content$title == title, ]
+          # Create provenance node. Add creator and contact below
+          out <- list(
+            dataSource = list(
+              title = title,
+              creator = NULL,
+              distribution = list(
+                online = list(
+                  onlineDescription = d[1, "onlineDescription"],
+                  url = d[1, "url"])),
+              contact = NULL),
+            description = "This provenance metadata does not contain entity specific information.")
+          # Add creator
+          for (i in 1:nrow(d)) {
+            if (d$role[i] == "creator") {
+              out$dataSource$creator[[length(out$dataSource$creator) + 1]] <- 
+                list(
+                  individualName = list(
+                    givenName = trimws(paste(d$givenName[i], d$middleInitial[i])),
+                    surName = d$surName[i]))
+            }
+          }
+          # Add contact
+          for (i in 1:nrow(d)) {
+            if (d$role[i] == "contact") {
+              out$dataSource$contact[[length(out$dataSource$contact) + 1]] <- 
+                list(
+                  individualName = list(
+                    givenName = trimws(paste(d$givenName[i], d$middleInitial[i])),
+                    surName = d$surName[i]))
+            }
+          }
+          out
+        })
+      # Add to eml
+      eml$dataset$methods$methodStep <- c(eml$dataset$methods$methodStep, provenance)
+    }
+
   }
-  
+
   # Create <project> ----------------------------------------------------------
   # The project metadata corresponding to the first "pi" listed in 
   # personnel.txt will become the primary project. Project metadata listed 

@@ -1388,6 +1388,10 @@ validate_personnel_publisher <- function(x) {
 #'     found}
 #'     
 #' @details 
+#'     This function compiles provenance input as \code{provenance} to 
+#'     \code{make_eml()} and listed in the provenance.txt template,
+#'     and returns all unique values in the provenance.txt template.
+#' 
 #'     Checks performed by this function:
 #'     \itemize{
 #'         \item{Template column names are correct}
@@ -1415,6 +1419,9 @@ validate_provenance <- function(x) {
     # Template column names are correct
     r <- validate_provenance_column_names(x)
     
+    # Compile provenance from allowed sources
+    x <- compile_provenance(x)
+    
     # systemID is one of the supported system identifiers
     r <- validate_provenance_system_id(x)
     required_issues <- c(required_issues, r)
@@ -1424,24 +1431,24 @@ validate_provenance <- function(x) {
     required_issues <- c(required_issues, r)
     
     # A URL is present for external resources
-    r <- validate_provenace_url_presence(x)
+    r <- validate_provenance_url_presence(x)
     required_issues <- c(required_issues, r)
     
     # A URL resolves for external resources
-    r <- validate_provenace_url_resolvability(x)
+    r <- validate_provenance_url_resolvability(x)
     required_issues <- c(required_issues, r)
 
     # An online description is recommended for external resources
-    r <- validate_provenace_online_description(x)
+    r <- validate_provenance_online_description(x)
     optional_issues <- c(optional_issues, r)
 
     # A title is present for external resources
-    r <- validate_provenace_title(x)
+    r <- validate_provenance_title(x)
     required_issues <- c(required_issues, r)
 
     # A persons name, or an organization name, is present for external 
     # resources
-    r <- validate_provenace_individual_organization_name(x)
+    r <- validate_provenance_individual_organization_name(x)
     required_issues <- c(required_issues, r)
 
     # A creator and contact (role) is listed for each external resource
@@ -1449,7 +1456,7 @@ validate_provenance <- function(x) {
     required_issues <- c(required_issues, r)
 
     # An email is recommended for external resources
-    r <- validate_provenace_email(x)
+    r <- validate_provenance_email(x)
     optional_issues <- c(optional_issues, r)
 
   }
@@ -1606,7 +1613,7 @@ validate_provenance_data_package_id <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenace_url_presence <- function(x) {
+validate_provenance_url_presence <- function(x) {
   external_resources <- x$template$provenance.txt$content[
     !(x$template$provenance.txt$content$dataPackageID != "" &
       x$template$provenance.txt$content$systemID != ""), ]
@@ -1647,7 +1654,7 @@ validate_provenace_url_presence <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenace_url_resolvability <- function(x) {
+validate_provenance_url_resolvability <- function(x) {
   external_resources <- x$template$provenance.txt$content[
     !(x$template$provenance.txt$content$dataPackageID != "" &
         x$template$provenance.txt$content$systemID != ""), ]
@@ -1689,7 +1696,7 @@ validate_provenace_url_resolvability <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenace_online_description <- function(x) {
+validate_provenance_online_description <- function(x) {
   external_resources <- x$template$provenance.txt$content[
     !(x$template$provenance.txt$content$dataPackageID != "" &
         x$template$provenance.txt$content$systemID != ""), ]
@@ -1721,7 +1728,7 @@ validate_provenace_online_description <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenace_title <- function(x) {
+validate_provenance_title <- function(x) {
   external_resources <- x$template$provenance.txt$content[
     !(x$template$provenance.txt$content$dataPackageID != "" &
         x$template$provenance.txt$content$systemID != ""), ]
@@ -1753,7 +1760,7 @@ validate_provenace_title <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenace_individual_organization_name <- function(x) {
+validate_provenance_individual_organization_name <- function(x) {
   external_resources <- x$template$provenance.txt$content[
     !(x$template$provenance.txt$content$dataPackageID != "" &
         x$template$provenance.txt$content$systemID != ""), ]
@@ -1839,7 +1846,7 @@ validate_provenance_contact_creator <- function(x) {
 #'     \item{character}{Description of validation issues}
 #'     \item{NULL}{If no issues were found}
 #'
-validate_provenace_email <- function(x) {
+validate_provenance_email <- function(x) {
   external_resources <- x$template$provenance.txt$content[
     !(x$template$provenance.txt$content$dataPackageID != "" &
         x$template$provenance.txt$content$systemID != ""), ]
@@ -2924,6 +2931,94 @@ compile_geographic_coverage <- function(x) {
   
   x
 }
+
+
+
+
+
+
+
+
+#' Compile provenance from multiple sources
+#'
+#' @param x 
+#'     (list) The data and metadata object returned by 
+#'     \code{template_arguments()}.
+#'     
+#' @return
+#'     \item{x}{(list) With geographic coverage compiled from multiple input 
+#'     sources into the geographic_coverage template.}
+#'
+#' @details 
+#'     Combine multiple sources of provenance and remove duplicate 
+#'     entries. This info can be supplied in the \code{provenance} 
+#'     argument of \code{make_eml()} as well as in the provenance template.
+#'     
+compile_provenance <- function(x) {
+  
+  provenance <- NULL
+  
+  # TODO: Refactor this chunck. Each conditional handles a separate user case.
+  # A better solution would require fewer exceptions.
+  make_eml_args <- try(sys.call(which = -3), silent = TRUE)
+  if (class(make_eml_args) == "call") {
+    if (is.character(make_eml_args$provenance)) {
+      provenance <- make_eml_args$provenance
+    } else if (is.call(make_eml_args$geographic.coordinates)) {
+      provenance <- eval(make_eml_args$provenance)
+    } else if (is.name(make_eml_args$provenance)) {
+      provenance <- eval(make_eml_args$provenance)
+    }
+  }
+  
+  x$template$provenance$content <- unique.data.frame(
+    rbind(
+      data.frame(
+        dataPackageID = character(0),
+        systemID = character(0),
+        url = character(0),
+        onlineDescription = character(0),
+        title = character(0),
+        givenName = character(0),
+        middleInitial = character(0),
+        surName = character(0),
+        role = character(0),
+        organizationName = character(0),
+        email = character(0),
+        stringsAsFactors = F),
+      data.frame(
+        dataPackageID = as.character(provenance),
+        systemID = "EDI",
+        url = "",
+        onlineDescription = "",
+        title = "",
+        givenName = "",
+        middleInitial = "",
+        surName = "",
+        role = "",
+        organizationName = "",
+        email = "",
+        stringsAsFactors = F),
+      data.frame(
+        dataPackageID = x$template$provenance.txt$content$dataPackageID,
+        systemID = x$template$provenance.txt$content$systemID,
+        url = x$template$provenance.txt$content$url,
+        onlineDescription = x$template$provenance.txt$content$onlineDescription,
+        title = x$template$provenance.txt$content$title,
+        givenName = x$template$provenance.txt$content$givenName,
+        middleInitial = x$template$provenance.txt$content$middleInitial,
+        surName = x$template$provenance.txt$content$surName,
+        role = x$template$provenance.txt$content$role,
+        organizationName = x$template$provenance.txt$content$organizationName,
+        email = x$template$provenance.txt$content$email,
+        stringsAsFactors = F)))
+  if (nrow(x$template$provenance.txt$content) == 0) {
+    x$template$provenance.txt <- NULL
+  }
+  
+  x
+}
+
 
 
 

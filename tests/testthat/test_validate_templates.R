@@ -1274,7 +1274,7 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenace_url_presence(x1),
+      validate_provenance_url_presence(x1),
       "Missing URLs. A URL is required for each resource. These resources"))
   
   r <- validate_provenance(x1)
@@ -1297,7 +1297,7 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenace_url_resolvability(x1),
+      validate_provenance_url_resolvability(x1),
       "Unresolvable URLs. URLs must be resolvable. These URLs do not "))
   
   r <- validate_provenance(x1)
@@ -1320,7 +1320,7 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenace_online_description(x1),
+      validate_provenance_online_description(x1),
       "Missing online descriptions. A description of each external resource"))
   
   r <- validate_provenance(x1)
@@ -1342,7 +1342,7 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenace_title(x1),
+      validate_provenance_title(x1),
       "Missing titles. A title is required for each external resource. "))
   
   r <- validate_provenance(x1)
@@ -1364,7 +1364,7 @@ testthat::test_that("provenance", {
   x1$template$provenance.txt$content$givenName[external_resources[1:2]] <- ""
   x1$template$provenance.txt$content$middleInitial[external_resources[1:2]] <- ""
   x1$template$provenance.txt$content$surName[external_resources[1:2]] <- ""
-  expect_null(validate_provenace_individual_organization_name(x1))
+  expect_null(validate_provenance_individual_organization_name(x1))
   
   # Is not an issue if individual name is present
   x1 <- x
@@ -1374,7 +1374,7 @@ testthat::test_that("provenance", {
         !(x1$template$provenance.txt$content$dataPackageID != "" &
             x1$template$provenance.txt$content$systemID != ""), ]))
   x1$template$provenance.txt$content$organizationName[external_resources[1:2]] <- ""
-  expect_null(validate_provenace_individual_organization_name(x1))
+  expect_null(validate_provenance_individual_organization_name(x1))
   
   # Is an issue only if both are missing
   x1 <- x
@@ -1390,7 +1390,7 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenace_individual_organization_name(x1),
+      validate_provenance_individual_organization_name(x1),
       "Missing individual or organization name. An individual person or "))
   
   r <- validate_provenance(x1)
@@ -1436,7 +1436,7 @@ testthat::test_that("provenance", {
   
   expect_true(
     stringr::str_detect(
-      validate_provenace_email(x1),
+      validate_provenance_email(x1),
       "Missing email. An email address for each external resource is "))
   
   r <- validate_provenance(x1)
@@ -1448,55 +1448,185 @@ testthat::test_that("provenance", {
   
   # If multiple validation issues, then report all issues with a warning and
   # corresponding changes to x (the data and metadata list object).
-  # TODO: Write this test
   
-  # x1 <- x
-  # # Creator
-  # x1$template$provenance.txt$content$role[
-  #   which(x1$template$provenance.txt$content$role == "creator")] <- "creontact"
-  # # Contact
-  # x1$template$provenance.txt$content$role[
-  #   which(x1$template$provenance.txt$content$role == "contact")] <- "creontact"
-  # # role - All provenance have roles
-  # x1$template$provenance.txt$content$role[
-  #   which(x1$template$provenance.txt$content$role == "Equipment lead")] <- ""  
-  # # Project info - The projectTitle, fundingAgency, and fundingNumber is 
-  # # recommended
-  # x1$template$provenance.txt$content$projectTitle <- ""
-  # x1$template$provenance.txt$content$fundingAgency <- ""
-  # x1$template$provenance.txt$content$fundingNumber <- ""
-  # # Publisher - Only one publisher is allowed
-  # use_i <- which(x1$template$provenance.txt$content$role == "creontact")[1:2]
-  # x1$template$provenance.txt$content$role[use_i] <- "publisher"
-  # 
-  # # Expectations
-  # r <- validate_provenance(x1)
-  # expect_true(
-  #   any(
-  #     stringr::str_detect(
-  #       r$issues,
-  #       "Missing creator. At least one creator is required.")))
-  # expect_true(
-  #   any(
-  #     stringr::str_detect(
-  #       r$issues,
-  #       "Missing contact. At least one contact is required.")))
-  # expect_true(
-  #   any(
-  #     stringr::str_detect(
-  #       r$issues,
-  #       "Missing role. Each person requires a role.")))
-  # expect_true(
-  #   any(
-  #     stringr::str_detect(
-  #       validate_provenance(x1)$issues,
-  #       "Missing funding information. Including the project title, ")))
-  # expect_true(
-  #   any(
-  #     stringr::str_detect(
-  #       r$issues,
-  #       "Too many publishers. Only the first will be used.")))
-  # expect_null(r$x$template$provenance.txt)
+  x1 <- x
+  # systemID
+  x1$template$provenance.txt$content$systemID[
+    stringr::str_detect(
+      x1$template$provenance.txt$content$systemID, 
+      "EDI")] <- "non_supported_system"
+  # email
+  external_resources <- as.numeric(
+    row.names(
+      x1$template$provenance.txt$content[
+        !(x1$template$provenance.txt$content$dataPackageID != "" &
+            x1$template$provenance.txt$content$systemID != ""), ]))
+  x1$template$provenance.txt$content$email[
+    external_resources[1:2]] <- ""
+  
+  # Expectations
+  r <- validate_provenance(x1)
+  expect_true(
+    any(
+      stringr::str_detect(
+        r$issues,
+        "Unsupported systemID. The only supported system, currently, ")))
+  expect_true(
+    any(
+      stringr::str_detect(
+        r$issues,
+        "Missing email. An email address for each external resource is ")))
+  
+})
+
+
+
+
+
+
+
+
+testthat::test_that("compile_provenance()", {
+  
+  # Test the 3 different function call permutations to ensure the provenance
+  # metadata is being added correctly
+  
+  # Parameterize do.call()
+  attr_tmp <- read_template_attributes()
+  x <- template_arguments(
+    path = system.file(
+      '/examples/pkg_260/metadata_templates',
+      package = 'EMLassemblyline'),
+    data.path = system.file(
+      '/examples/pkg_260/data_objects',
+      package = 'EMLassemblyline'),
+    data.table = c("decomp.csv", "nitrogen.csv"),
+    other.entity = c("ancillary_data.zip", "processing_and_analysis.R"))
+  x$x$template$taxonomic_coverage.txt <- NULL
+  x$data.path <- system.file('/examples/pkg_260/data_objects', package = 'EMLassemblyline')
+  x$data.table <- c("decomp.csv", "nitrogen.csv")
+  x$data.table.name <- c("Decomp file name", "Nitrogen file name")
+  x$data.table.description <- c("Decomp file description", "Nitrogen file description")
+  x$data.table.quote.character  <- c("\\'", "\\'")
+  x$data.table.url <- c("https://url/to/decomp.csv", "https://url/to/nitrogen.csv")
+  x$dataset.title <- 'Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015'
+  x$eml.path <- tempdir()
+  x$geographic.coordinates <- c('55.895', '112.094','55.895', '112.094')
+  x$geographic.description <- 'Alberta, Canada, 100 km south of Fort McMurray, Canada'
+  x$maintenance.description <- 'Completed'
+  x$other.entity <- c("ancillary_data.zip", "processing_and_analysis.R")
+  x$other.entity.name <- c("ancillary_data file name", "processing_and_analysis file name")
+  x$other.entity.description <- c("ancillary_data file description", "processing_and_analysis file description")
+  x$other.entity.url <- c("https://url/to/ancillary_data.zip", "https://url/to/processing_and_analysis.R")
+  x$package.id <- "edi.100.1"
+  x$path <- system.file('/examples/pkg_260/metadata_templates', package = 'EMLassemblyline')
+  x$provenance <- "edi.200.1"
+  x$return.obj <- T
+  x$temporal.coverage <- c('2014-05-01', '2015-10-31')
+  x$user.domain <- c("EDI", "LTER")
+  x$user.id <- c("userid1", "userid2")
+  x$write.file <- F
+  
+  x1 <- x
+  internal_resources <- unique(x1$x$template$provenance.txt$content$dataPackageID[
+    x1$x$template$provenance.txt$content$dataPackageID != ""])
+  external_resources <- unique(x1$x$template$provenance.txt$content$title[
+    x1$x$template$provenance.txt$content$dataPackageID == ""])
+  
+  # Parameterize for make_eml()
+  file.copy(
+    from = system.file(
+      "/examples/pkg_260", 
+      package = "EMLassemblyline"),
+    to = tempdir(),
+    recursive = TRUE)
+  unlink(
+    paste0(tempdir(), "/pkg_260/metadata_templates/taxonomic_coverage.txt"),
+    force = TRUE)
+  
+  # Called from do.call()
+  
+  x1 <- x
+  r <- do.call(make_eml, x1[names(x1) %in% names(formals(make_eml))])
+  
+  expect_true(
+    length(r$dataset$methods$methodStep) - 1 == 
+      length(c(internal_resources, external_resources)))
+  
+  for (i in 2:length(r$dataset$methods$methodStep)) {
+    expect_true(
+      "dataSource" %in% names(r$dataset$methods$methodStep[[i]]))
+  }
+  
+  # Called from make_eml() with explicitly stated arguments
+
+  r <- make_eml(
+    path = paste0(tempdir(), "/pkg_260/metadata_templates"),
+    data.path = paste0(tempdir(), "/pkg_260/data_objects"),
+    eml.path = paste0(tempdir(), "/pkg_260/eml"),
+    dataset.title = "Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015",
+    data.table = c("decomp.csv", "nitrogen.csv"),
+    data.table.name = c("Decomp file name", "Nitrogen file name"),
+    data.table.description = c("Decomposition data description", "Nitrogen data description"),
+    other.entity = c("ancillary_data.zip", "processing_and_analysis.R"),
+    other.entity.name = c("Ancillary data name", "Script name"),
+    other.entity.description = c("Ancillary data description", "Script description"),
+    temporal.coverage = c('2014-05-01', '2015-10-31'),
+    maintenance.description = 'completed',
+    user.id = "someuserid",
+    user.domain = "LTER",
+    package.id = 'edi.141.1',
+    provenance = "edi.200.1",
+    return.obj = TRUE,
+    write.file = FALSE)
+  
+  expect_true(
+    length(r$dataset$methods$methodStep) - 1 == 
+      length(c(internal_resources, external_resources)))
+  
+  for (i in 2:length(r$dataset$methods$methodStep)) {
+    expect_true(
+      "dataSource" %in% names(r$dataset$methods$methodStep[[i]]))
+  }
+  
+  # Called from make_eml() with named arguments
+  
+  prov <- "edi.200.1"
+  r <- make_eml(
+    path = paste0(tempdir(), "/pkg_260/metadata_templates"),
+    data.path = paste0(tempdir(), "/pkg_260/data_objects"),
+    eml.path = paste0(tempdir(), "/pkg_260/eml"),
+    dataset.title = "Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015",
+    data.table = c("decomp.csv", "nitrogen.csv"),
+    data.table.name = c("Decomp file name", "Nitrogen file name"),
+    data.table.description = c("Decomposition data description", "Nitrogen data description"),
+    other.entity = c("ancillary_data.zip", "processing_and_analysis.R"),
+    other.entity.name = c("Ancillary data name", "Script name"),
+    other.entity.description = c("Ancillary data description", "Script description"),
+    temporal.coverage = c('2014-05-01', '2015-10-31'),
+    maintenance.description = 'completed',
+    user.id = "someuserid",
+    user.domain = "LTER",
+    package.id = 'edi.141.1',
+    provenance = prov,
+    return.obj = TRUE,
+    write.file = FALSE)
+  
+  expect_true(
+    length(r$dataset$methods$methodStep) - 1 == 
+      length(c(internal_resources, external_resources)))
+  
+  for (i in 2:length(r$dataset$methods$methodStep)) {
+    expect_true(
+      "dataSource" %in% names(r$dataset$methods$methodStep[[i]]))
+  }
+  
+  # Clean up
+  
+  unlink(
+    paste0(tempdir(), "/pkg_260"), 
+    recursive = TRUE, 
+    force = TRUE)
   
 })
 
