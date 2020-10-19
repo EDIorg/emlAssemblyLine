@@ -1420,7 +1420,7 @@ validate_provenance <- function(x) {
     r <- validate_provenance_column_names(x)
     
     # Compile provenance from allowed sources
-    x <- compile_provenance(x)
+    r <- compile_provenance(x)
     
     # systemID is one of the supported system identifiers
     r <- validate_provenance_system_id(x)
@@ -1765,21 +1765,23 @@ validate_provenance_individual_organization_name <- function(x) {
     !(x$template$provenance.txt$content$dataPackageID != "" &
         x$template$provenance.txt$content$systemID != ""), ]
   titles <- unique(external_resources$title)
-  missing_individual_and_organization_name <- apply(
-    external_resources, 
-    1,
-    function(x) {
-      (x["givenName"] == "" & x["surName"] == "") & x["organizationName"] == ""
-    })
-  missing_titles <- unique(
-    external_resources$title[
-      missing_individual_and_organization_name])
-  if (length(missing_titles) != 0) {
-    paste0(
-      "Missing individual or organization name. An individual person or ",
-      "organization name is required for each external resource. These ",
-      "resources are missing one or the other:\n",
-      paste(missing_titles, collapse = "\n"))
+  if (!is.null(external_resources)) {
+    missing_individual_and_organization_name <- apply(
+      external_resources, 
+      1,
+      function(x) {
+        (x["givenName"] == "" & x["surName"] == "") & x["organizationName"] == ""
+      })
+    missing_titles <- unique(
+      external_resources$title[
+        missing_individual_and_organization_name])
+    if (length(missing_titles) != 0) {
+      paste0(
+        "Missing individual or organization name. An individual person or ",
+        "organization name is required for each external resource. These ",
+        "resources are missing one or the other:\n",
+        paste(missing_titles, collapse = "\n"))
+    }
   }
 }
 
@@ -2957,7 +2959,7 @@ compile_geographic_coverage <- function(x) {
 compile_provenance <- function(x) {
   
   provenance <- NULL
-  
+
   # TODO: Refactor this chunck. Each conditional handles a separate user case.
   # A better solution would require fewer exceptions.
   make_eml_args <- try(sys.call(which = -3), silent = TRUE)
@@ -2971,52 +2973,54 @@ compile_provenance <- function(x) {
     }
   }
   
-  x$template$provenance$content <- unique.data.frame(
-    rbind(
-      data.frame(
-        dataPackageID = character(0),
-        systemID = character(0),
-        url = character(0),
-        onlineDescription = character(0),
-        title = character(0),
-        givenName = character(0),
-        middleInitial = character(0),
-        surName = character(0),
-        role = character(0),
-        organizationName = character(0),
-        email = character(0),
-        stringsAsFactors = F),
-      data.frame(
-        dataPackageID = as.character(provenance),
-        systemID = "EDI",
-        url = "",
-        onlineDescription = "",
-        title = "",
-        givenName = "",
-        middleInitial = "",
-        surName = "",
-        role = "",
-        organizationName = "",
-        email = "",
-        stringsAsFactors = F),
-      data.frame(
-        dataPackageID = x$template$provenance.txt$content$dataPackageID,
-        systemID = x$template$provenance.txt$content$systemID,
-        url = x$template$provenance.txt$content$url,
-        onlineDescription = x$template$provenance.txt$content$onlineDescription,
-        title = x$template$provenance.txt$content$title,
-        givenName = x$template$provenance.txt$content$givenName,
-        middleInitial = x$template$provenance.txt$content$middleInitial,
-        surName = x$template$provenance.txt$content$surName,
-        role = x$template$provenance.txt$content$role,
-        organizationName = x$template$provenance.txt$content$organizationName,
-        email = x$template$provenance.txt$content$email,
-        stringsAsFactors = F)))
-  if (nrow(x$template$provenance.txt$content) == 0) {
-    x$template$provenance.txt <- NULL
+  if (!is.null(provenance)) {
+    x$template$provenance$content <- unique.data.frame(
+      rbind(
+        data.frame(
+          dataPackageID = character(0),
+          systemID = character(0),
+          url = character(0),
+          onlineDescription = character(0),
+          title = character(0),
+          givenName = character(0),
+          middleInitial = character(0),
+          surName = character(0),
+          role = character(0),
+          organizationName = character(0),
+          email = character(0),
+          stringsAsFactors = F),
+        data.frame(
+          dataPackageID = as.character(provenance),
+          systemID = "EDI",
+          url = "",
+          onlineDescription = "",
+          title = "",
+          givenName = "",
+          middleInitial = "",
+          surName = "",
+          role = "",
+          organizationName = "",
+          email = "",
+          stringsAsFactors = F),
+        data.frame(
+          dataPackageID = x$template$provenance.txt$content$dataPackageID,
+          systemID = x$template$provenance.txt$content$systemID,
+          url = x$template$provenance.txt$content$url,
+          onlineDescription = x$template$provenance.txt$content$onlineDescription,
+          title = x$template$provenance.txt$content$title,
+          givenName = x$template$provenance.txt$content$givenName,
+          middleInitial = x$template$provenance.txt$content$middleInitial,
+          surName = x$template$provenance.txt$content$surName,
+          role = x$template$provenance.txt$content$role,
+          organizationName = x$template$provenance.txt$content$organizationName,
+          email = x$template$provenance.txt$content$email,
+          stringsAsFactors = F)))
+    if (nrow(x$template$provenance.txt$content) == 0) {
+      x$template$provenance.txt <- NULL
+    }
+    x
   }
   
-  x
 }
 
 

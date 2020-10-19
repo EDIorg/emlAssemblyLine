@@ -1423,7 +1423,7 @@ testthat::test_that("provenance", {
       "Missing creator/contact. Each external resources requires both a "))
   expect_null(r$x$template$provenance.txt)
   
-  # TODO: An email contact is recommended for external resources
+  # An email contact is recommended for external resources
   
   x1 <- x
   external_resources <- as.numeric(
@@ -1547,7 +1547,8 @@ testthat::test_that("compile_provenance()", {
   # Called from do.call()
   
   x1 <- x
-  r <- do.call(make_eml, x1[names(x1) %in% names(formals(make_eml))])
+  r <- suppressWarnings(
+    do.call(make_eml, x1[names(x1) %in% names(formals(make_eml))]))
   
   expect_true(
     length(r$dataset$methods$methodStep) - 1 == 
@@ -1560,25 +1561,26 @@ testthat::test_that("compile_provenance()", {
   
   # Called from make_eml() with explicitly stated arguments
 
-  r <- make_eml(
-    path = paste0(tempdir(), "/pkg_260/metadata_templates"),
-    data.path = paste0(tempdir(), "/pkg_260/data_objects"),
-    eml.path = paste0(tempdir(), "/pkg_260/eml"),
-    dataset.title = "Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015",
-    data.table = c("decomp.csv", "nitrogen.csv"),
-    data.table.name = c("Decomp file name", "Nitrogen file name"),
-    data.table.description = c("Decomposition data description", "Nitrogen data description"),
-    other.entity = c("ancillary_data.zip", "processing_and_analysis.R"),
-    other.entity.name = c("Ancillary data name", "Script name"),
-    other.entity.description = c("Ancillary data description", "Script description"),
-    temporal.coverage = c('2014-05-01', '2015-10-31'),
-    maintenance.description = 'completed',
-    user.id = "someuserid",
-    user.domain = "LTER",
-    package.id = 'edi.141.1',
-    provenance = "edi.200.1",
-    return.obj = TRUE,
-    write.file = FALSE)
+  r <- suppressWarnings(
+    make_eml(
+      path = paste0(tempdir(), "/pkg_260/metadata_templates"),
+      data.path = paste0(tempdir(), "/pkg_260/data_objects"),
+      eml.path = paste0(tempdir(), "/pkg_260/eml"),
+      dataset.title = "Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015",
+      data.table = c("decomp.csv", "nitrogen.csv"),
+      data.table.name = c("Decomp file name", "Nitrogen file name"),
+      data.table.description = c("Decomposition data description", "Nitrogen data description"),
+      other.entity = c("ancillary_data.zip", "processing_and_analysis.R"),
+      other.entity.name = c("Ancillary data name", "Script name"),
+      other.entity.description = c("Ancillary data description", "Script description"),
+      temporal.coverage = c('2014-05-01', '2015-10-31'),
+      maintenance.description = 'completed',
+      user.id = "someuserid",
+      user.domain = "LTER",
+      package.id = 'edi.141.1',
+      provenance = "edi.200.1",
+      return.obj = TRUE,
+      write.file = FALSE))
   
   expect_true(
     length(r$dataset$methods$methodStep) - 1 == 
@@ -1592,25 +1594,26 @@ testthat::test_that("compile_provenance()", {
   # Called from make_eml() with named arguments
   
   prov <- "edi.200.1"
-  r <- make_eml(
-    path = paste0(tempdir(), "/pkg_260/metadata_templates"),
-    data.path = paste0(tempdir(), "/pkg_260/data_objects"),
-    eml.path = paste0(tempdir(), "/pkg_260/eml"),
-    dataset.title = "Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015",
-    data.table = c("decomp.csv", "nitrogen.csv"),
-    data.table.name = c("Decomp file name", "Nitrogen file name"),
-    data.table.description = c("Decomposition data description", "Nitrogen data description"),
-    other.entity = c("ancillary_data.zip", "processing_and_analysis.R"),
-    other.entity.name = c("Ancillary data name", "Script name"),
-    other.entity.description = c("Ancillary data description", "Script description"),
-    temporal.coverage = c('2014-05-01', '2015-10-31'),
-    maintenance.description = 'completed',
-    user.id = "someuserid",
-    user.domain = "LTER",
-    package.id = 'edi.141.1',
-    provenance = prov,
-    return.obj = TRUE,
-    write.file = FALSE)
+  r <- suppressWarnings(
+    make_eml(
+      path = paste0(tempdir(), "/pkg_260/metadata_templates"),
+      data.path = paste0(tempdir(), "/pkg_260/data_objects"),
+      eml.path = paste0(tempdir(), "/pkg_260/eml"),
+      dataset.title = "Sphagnum and Vascular Plant Decomposition under Increasing Nitrogen Additions: 2014-2015",
+      data.table = c("decomp.csv", "nitrogen.csv"),
+      data.table.name = c("Decomp file name", "Nitrogen file name"),
+      data.table.description = c("Decomposition data description", "Nitrogen data description"),
+      other.entity = c("ancillary_data.zip", "processing_and_analysis.R"),
+      other.entity.name = c("Ancillary data name", "Script name"),
+      other.entity.description = c("Ancillary data description", "Script description"),
+      temporal.coverage = c('2014-05-01', '2015-10-31'),
+      maintenance.description = 'completed',
+      user.id = "someuserid",
+      user.domain = "LTER",
+      package.id = 'edi.141.1',
+      provenance = prov,
+      return.obj = TRUE,
+      write.file = FALSE))
   
   expect_true(
     length(r$dataset$methods$methodStep) - 1 == 

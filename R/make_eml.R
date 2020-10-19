@@ -220,7 +220,6 @@ make_eml <- function(
   other.entity.name = other.entity,
   other.entity.description = NULL,
   other.entity.url = NULL,
-  provenance = NULL,
   user.id = NULL,
   user.domain = NULL,
   package.id = NULL,
@@ -233,6 +232,7 @@ make_eml <- function(
   data.files.quote.character,
   data.files.url,
   data.url = NULL,
+  provenance = NULL,
   zip.dir,
   zip.dir.description
   ) {
@@ -312,6 +312,14 @@ make_eml <- function(
     warning(
       paste0("Argument 'data.url' is deprecated; please use 'data.table.url' ",
              "and 'other.entity.url' instead."),
+      call. = F)
+  }
+  # FIXME: Remove October 2021
+  if (!is.null(provenance)) {
+    warning(
+      paste0(
+        "Argument 'provenance' is deprecated; please use ",
+        "'template_provanence()' instead."),
       call. = F)
   }
   # FIXME: Remove May 2020
@@ -1061,23 +1069,21 @@ make_eml <- function(
   }
   
   # Create <methodStep> (provenance) ------------------------------------------
-  # Get provenance metadata for a data package in the EDI data repository.
+  # Get provenance metadata from supported systems (repositories) and external 
+  # sources (everything else), then combine as a list of methodStep.
+  
   # TODO: Support provenance metadata models used by other EML based 
-  # repositories
+  # repositories.
   
   if (!is.null(x$template$provenance.txt$content)) {
     
-    # Internal resources (supported systems)
-    internal_resources <- x$template$provenance.txt$content[
+    # Identify internal sources
+    internal_sources <- x$template$provenance.txt$content[
       x$template$provenance.txt$content$dataPackageID != "", ]
     
-    # External resources (everything else)
-    external_resources <- x$template$provenance.txt$content[
-      x$template$provenance.txt$content$dataPackageID == "", ]
-    
-    # Parse internal resources
-    if (nrow(internal_resources) != 0) {
-      data_package_identifiers <- unique(internal_resources$dataPackageID)
+    # Parse internal sources
+    if (nrow(internal_sources) != 0) {
+      data_package_identifiers <- unique(internal_sources$dataPackageID)
       o <- lapply(
         data_package_identifiers,
         function(k) {
@@ -1112,11 +1118,15 @@ make_eml <- function(
         })
     }
     
-    # Parse external resources
-    if (nrow(external_resources) != 0) {
-      resource_titles <- unique(external_resources$title)
+    # Identify external sources
+    external_sources <- x$template$provenance.txt$content[
+      x$template$provenance.txt$content$dataPackageID == "", ]
+    
+    # Parse external sources
+    if (nrow(external_sources) != 0) {
+      source_titles <- unique(external_sources$title)
       provenance <- lapply(
-        resource_titles,
+        source_titles,
         function(title) {
           message("      <methodStep> (provenance metadata)")
           d <- x$template$provenance.txt$content[
@@ -1139,7 +1149,8 @@ make_eml <- function(
                 list(
                   individualName = list(
                     givenName = trimws(paste(d$givenName[i], d$middleInitial[i])),
-                    surName = d$surName[i]))
+                    surName = d$surName[i]),
+                  organizationName = d$organizationName[i])
             }
           }
           # Add contact
@@ -1149,7 +1160,8 @@ make_eml <- function(
                 list(
                   individualName = list(
                     givenName = trimws(paste(d$givenName[i], d$middleInitial[i])),
-                    surName = d$surName[i]))
+                    surName = d$surName[i]),
+                  organizationName = d$organizationName[i])
             }
           }
           out
